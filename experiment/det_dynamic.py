@@ -54,11 +54,16 @@ def parse_args():
                         type=str,
                         default='cpu',
                         help='Export ONNX device')
+    parser.add_argument('--batchsize',
+                        type=int,
+                        default=1,
+                        help='batch size for the model')
     args = parser.parse_args()
     assert args.dynamic in ['batch', 'all']
     PostDetect.conf_thres = args.conf_thres
     PostDetect.iou_thres = args.iou_thres
     PostDetect.topk = args.topk
+    PostDetect.dynamic = True
     return args
 
 
@@ -81,7 +86,6 @@ def main(args):
         dynamic_axes.update({'images': {0: 'batch'}})
     else:
         dynamic_axes.update({'images': {0: 'batch', 2: 'height', 3: 'width'}})
-
     YOLOv8 = YOLO(args.weights)
     model = YOLOv8.model.fuse().eval()
     for m in model.modules():
@@ -89,7 +93,7 @@ def main(args):
         m.to(args.device)
     model.to(args.device)
     # fixed input shape [1, 3, 640, 640]
-    fake_input = torch.randn(1, 3, 640, 640).to(args.device)
+    fake_input = torch.randn(args.batchsize, 3, 416, 416).to(args.device)
     for _ in range(2):
         model(fake_input)
     save_path = args.weights.replace('.pt', '.onnx')
